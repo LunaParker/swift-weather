@@ -1,10 +1,3 @@
-//
-//  SwiftWeatherApp.swift
-//  SwiftWeather
-//
-//  Created by Luna Parker on 4/9/2026.
-//
-
 import SwiftUI
 
 @main
@@ -13,5 +6,14 @@ struct SwiftWeatherApp: App {
         WindowGroup {
             ContentView()
         }
+        #if os(macOS)
+        .defaultSize(width: 720, height: 900)
+        #endif
+
+        #if os(macOS)
+        Settings {
+            SettingsView()
+        }
+        #endif
     }
 }
