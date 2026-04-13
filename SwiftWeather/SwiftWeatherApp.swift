@@ -5,6 +5,11 @@ struct SwiftWeatherApp: App {
     var body: some Scene {
         WindowGroup {
             ContentView()
+                #if os(macOS)
+                .onReceive(NotificationCenter.default.publisher(for: NSWindow.willCloseNotification)) { _ in
+                    NSApplication.shared.terminate(nil)
+                }
+                #endif
         }
         #if os(macOS)
         .defaultSize(width: 720, height: 900)
