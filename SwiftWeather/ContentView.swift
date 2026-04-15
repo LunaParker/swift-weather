@@ -164,6 +164,105 @@ struct ContentView: View {
     // MARK: - Weather Content
 
     private func weatherScrollView(weather: AllWeatherData, location: Location) -> some View {
+        GeometryReader { geo in
+            if geo.size.width >= 900 {
+                wideWeatherLayout(weather: weather, location: location)
+            } else {
+                narrowWeatherLayout(weather: weather, location: location)
+            }
+        }
+    }
+
+    // MARK: - Wide Layout (two-column)
+
+    private func wideWeatherLayout(weather: AllWeatherData, location: Location) -> some View {
+        let showFeelsLike = temperatureDisplay == "feelsLike"
+        let prominentTemp = showFeelsLike ? weather.current.feelsLike : weather.current.temperature
+        let secondaryTemp = showFeelsLike ? weather.current.temperature : weather.current.feelsLike
+        let secondaryLabel = showFeelsLike ? "Actual" : "Feels like"
+
+        let primary = headerPrimary
+        let secondary = headerSecondary
+        let tertiary = headerTertiary
+
+        return HStack(spacing: 0) {
+            // Left panel — fixed, non-scrolling
+            VStack(alignment: .leading, spacing: 0) {
+                Spacer()
+
+                VStack(alignment: .leading, spacing: 20) {
+                    Image(systemName: weatherSymbol(for: weather.current.weather.icon))
+                        .symbolRenderingMode(.multicolor)
+                        .font(.system(size: 96))
+                        .shadow(color: .black.opacity(0.2), radius: 8, y: 4)
+
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("\(Int(prominentTemp.rounded()))°")
+                            .font(.system(size: 80, weight: .thin))
+                            .foregroundStyle(primary)
+
+                        Text(weather.current.weather.text)
+                            .font(.title2.weight(.medium))
+                            .foregroundStyle(primary.opacity(0.85))
+                    }
+
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text(location.name)
+                            .font(.title3.weight(.medium))
+                            .foregroundStyle(secondary)
+                        Text(location.subtitle)
+                            .font(.subheadline)
+                            .foregroundStyle(tertiary)
+                    }
+
+                    HStack(spacing: 8) {
+                        Text("\(secondaryLabel) \(Int(secondaryTemp.rounded()))°")
+                        if let today = weather.daily.first {
+                            Text("·")
+                                .foregroundStyle(tertiary)
+                            Text("H:\(Int(today.day.temperature.rounded()))°  L:\(Int(today.night.temperature.rounded()))°")
+                        }
+                    }
+                    .font(.subheadline)
+                    .foregroundStyle(secondary)
+                }
+                .padding(.leading, 56)
+
+                Spacer()
+
+                attributionLink(for: location)
+                    .padding(.leading, 56)
+                    .padding(.bottom, 24)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+
+            // Right panel — scrollable cards
+            ScrollView {
+                VStack(spacing: 16) {
+                    if !weather.alerts.isEmpty {
+                        AlertBannerView(alerts: weather.alerts)
+                    }
+                    DayOverviewCard(hourly: weather.hourly, daily: weather.daily)
+                    HourlyForecastView(periods: weather.hourly)
+                    PrecipitationCard(hourly: weather.hourly, daily: weather.daily)
+                    DailyForecastView(days: weather.daily)
+                    infoCardsGrid(weather: weather)
+                }
+                .padding(.horizontal, 20)
+                .padding(.top, 8)
+                .padding(.bottom, 40)
+            }
+            .frame(maxWidth: .infinity)
+            .refreshable {
+                await viewModel.refreshWeather()
+            }
+        }
+        .onAppear { scrolledPastHeader = false }
+    }
+
+    // MARK: - Narrow Layout (single-column scroll)
+
+    private func narrowWeatherLayout(weather: AllWeatherData, location: Location) -> some View {
         ScrollView {
             VStack(spacing: 0) {
                 locationHeader(weather: weather, location: location)
