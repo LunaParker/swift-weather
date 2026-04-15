@@ -10,6 +10,7 @@ struct PrecipitationCard: View {
 
     @State private var aiSummary: String?
     @State private var isGenerating = false
+    @State private var hoveredIndex: Int?
 
     private var today: DailyForecast? { daily.first }
     private var todayPeriods: [HourlyPeriod] { Array(hourly.prefix(4)) }
@@ -168,7 +169,7 @@ struct PrecipitationCard: View {
 
     private var precipitationChart: some View {
         GeometryReader { geo in
-            let periods = hourly.prefix(8)
+            let periods = Array(hourly.prefix(8))
             let barCount = periods.count
             guard barCount > 0 else { return AnyView(EmptyView()) }
 
@@ -180,18 +181,18 @@ struct PrecipitationCard: View {
                 VStack(spacing: 4) {
                     // Bars
                     HStack(alignment: .bottom, spacing: spacing) {
-                        ForEach(Array(periods.enumerated()), id: \.element.id) { _, period in
-                            precipBar(pop: period.pop, maxHeight: geo.size.height - 20, width: barWidth)
+                        ForEach(Array(periods.enumerated()), id: \.element.id) { index, period in
+                            precipBarView(period: period, index: index, maxHeight: geo.size.height - 20, width: barWidth)
                         }
                     }
                     .frame(maxHeight: .infinity, alignment: .bottom)
 
                     // Time labels
                     HStack(spacing: spacing) {
-                        ForEach(Array(periods.enumerated()), id: \.element.id) { _, period in
+                        ForEach(Array(periods.enumerated()), id: \.element.id) { index, period in
                             Text(shortPeriodLabel(period.timeLocal))
                                 .font(.system(size: 9))
-                                .foregroundStyle(.secondary)
+                                .foregroundStyle(hoveredIndex == index ? .primary : .secondary)
                                 .frame(width: barWidth)
                         }
                     }
@@ -200,23 +201,82 @@ struct PrecipitationCard: View {
         }
     }
 
-    private func precipBar(pop: Int, maxHeight: CGFloat, width: CGFloat) -> some View {
-        let fraction = CGFloat(pop) / 100.0
+    private func precipBarView(period: HourlyPeriod, index: Int, maxHeight: CGFloat, width: CGFloat) -> some View {
+        let fraction = CGFloat(period.pop) / 100.0
         let minBarHeight: CGFloat = 3
         let barHeight = max(minBarHeight, maxHeight * fraction)
+        let isHovered = hoveredIndex == index
 
         return RoundedRectangle(cornerRadius: 3)
-            .fill(precipBarColor(pop: pop))
-            .frame(width: width, height: pop > 0 ? barHeight : minBarHeight)
+            .fill(precipBarColor(pop: period.pop, hovered: isHovered))
+            .frame(width: width, height: period.pop > 0 ? barHeight : minBarHeight)
+            .overlay(alignment: .top) {
+                if isHovered {
+                    precipTooltip(for: period)
+                        .offset(y: -4)
+                        .anchorPreference(key: TooltipKey.self, value: .bounds) { $0 }
+                        .transition(.opacity)
+                }
+            }
+            .onHover { over in
+                withAnimation(.easeOut(duration: 0.15)) {
+                    hoveredIndex = over ? index : nil
+                }
+            }
     }
 
-    private func precipBarColor(pop: Int) -> Color {
+    private func precipTooltip(for period: HourlyPeriod) -> some View {
+        let hasRain = period.rain.value > 0
+        let hasSnow = period.snow.value > 0
+        let precipType: String = if hasRain && hasSnow { "Mixed" }
+            else if hasSnow { "Snow" }
+            else if hasRain { "Rain" }
+            else if period.pop > 0 { "Rain" }
+            else { "" }
+
+        return VStack(alignment: .leading, spacing: 3) {
+            Text("\(period.pop)%")
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(.cyan)
+
+            if !precipType.isEmpty {
+                Text(precipType)
+                    .font(.caption2)
+                    .foregroundStyle(.primary)
+            }
+
+            if hasRain {
+                Text(String(format: "%.1f %@", period.rain.value, rainUnit))
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+            }
+            if hasSnow {
+                Text(String(format: "%.1f %@", period.snow.value, unitSystem == "imperial" ? "in" : "cm"))
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .padding(8)
+        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 8))
+        .fixedSize()
+        .offset(y: -56)
+    }
+
+    private struct TooltipKey: PreferenceKey {
+        static let defaultValue: Anchor<CGRect>? = nil
+        static func reduce(value: inout Anchor<CGRect>?, nextValue: () -> Anchor<CGRect>?) {
+            value = nextValue() ?? value
+        }
+    }
+
+    private func precipBarColor(pop: Int, hovered: Bool = false) -> Color {
+        if hovered { return .cyan }
         switch pop {
-        case 0:     .secondary.opacity(0.15)
-        case 1..<30:  .cyan.opacity(0.3)
-        case 30..<60: .cyan.opacity(0.55)
-        case 60..<80: .cyan.opacity(0.75)
-        default:      .cyan
+        case 0:       return .secondary.opacity(0.15)
+        case 1..<30:  return .cyan.opacity(0.3)
+        case 30..<60: return .cyan.opacity(0.55)
+        case 60..<80: return .cyan.opacity(0.75)
+        default:      return .cyan
         }
     }
 

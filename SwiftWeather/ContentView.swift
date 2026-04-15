@@ -13,6 +13,7 @@ struct DesktopTintedBackground: NSViewRepresentable {
         DispatchQueue.main.async {
             view.window?.isOpaque = false
             view.window?.backgroundColor = .clear
+            view.window?.setFrameAutosaveName("MainWindow")
         }
         return view
     }
