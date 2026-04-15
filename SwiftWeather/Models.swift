@@ -262,6 +262,7 @@ struct WeatherAlert: Identifiable, Sendable {
     let severity: String
     let issuedTime: String
     let expiryTime: String
+    let url: String
 }
 
 // MARK: - Daily Climate Average
@@ -494,31 +495,14 @@ enum APIResponse {
         let alerts: [AlertEntry]
 
         struct AlertEntry: Decodable {
-            let alertId: String?
-            let headline: String?
-            let description: String?
-            let severity: String?
-            let issued: TimeData?
-            let expires: TimeData?
-            let event: String?
-            let areaDescription: String?
-
-            private enum CodingKeys: String, CodingKey {
-                case alertId, headline, description, severity
-                case issued, expires, event, areaDescription
-            }
-
-            init(from decoder: Decoder) throws {
-                let c = try decoder.container(keyedBy: CodingKeys.self)
-                alertId = try? c.decode(String.self, forKey: .alertId)
-                headline = try? c.decode(String.self, forKey: .headline)
-                description = try? c.decode(String.self, forKey: .description)
-                severity = try? c.decode(String.self, forKey: .severity)
-                issued = try? c.decode(TimeData.self, forKey: .issued)
-                expires = try? c.decode(TimeData.self, forKey: .expires)
-                event = try? c.decode(String.self, forKey: .event)
-                areaDescription = try? c.decode(String.self, forKey: .areaDescription)
-            }
+            let id: String?
+            let name: String?
+            let message: String?
+            let priority: String?
+            let issuedTime: TimeData?
+            let expirationTime: TimeData?
+            let condition: String?
+            let type: String?
         }
     }
 

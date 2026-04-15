@@ -401,12 +401,13 @@ enum WeatherClient {
         let r = try await fetch(APIResponse.AlertResponse.self, from: url)
         return r.alerts.enumerated().map { index, a in
             WeatherAlert(
-                id: a.alertId ?? "\(index)",
-                title: a.headline ?? a.event ?? "Weather Alert",
-                description: a.description ?? "",
-                severity: a.severity ?? "Unknown",
-                issuedTime: a.issued?.local ?? "",
-                expiryTime: a.expires?.local ?? ""
+                id: a.id ?? "\(index)",
+                title: a.name ?? "Weather Alert",
+                description: a.message ?? "",
+                severity: a.priority ?? "Unknown",
+                issuedTime: a.issuedTime?.local ?? "",
+                expiryTime: a.expirationTime?.local ?? "",
+                url: "https://weather.gc.ca/?layers=alert"
             )
         }
     }

@@ -172,7 +172,8 @@ enum MockData {
                 description: "Periods of rain mixed with snow are expected this evening. Accumulations of 2-4 cm are possible in areas north of the city.",
                 severity: "Moderate",
                 issuedTime: isoLocal(now),
-                expiryTime: isoLocal(cal.date(byAdding: .hour, value: 12, to: now)!)
+                expiryTime: isoLocal(cal.date(byAdding: .hour, value: 12, to: now)!),
+                url: "https://weather.gc.ca/?layers=alert"
             )
         ]
 

@@ -61,6 +61,13 @@ struct AlertBannerView: View {
                                 .foregroundStyle(.tertiary)
                         }
                     }
+
+                    if let url = URL(string: alert.url) {
+                        Link(destination: url) {
+                            Label("View on Environment Canada", systemImage: "arrow.up.right.square")
+                                .font(.caption2.weight(.medium))
+                        }
+                    }
                 }
                 .transition(.opacity.combined(with: .move(edge: .top)))
             }
