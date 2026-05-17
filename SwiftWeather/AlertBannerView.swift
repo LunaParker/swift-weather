@@ -8,7 +8,7 @@ struct AlertBannerView: View {
     @State private var generatingIDs: Set<String> = []
 
     var body: some View {
-        VStack(spacing: 8) {
+        VStack(spacing: 10) {
             ForEach(alerts) { alert in
                 alertCard(alert)
                     .task { await generateSummary(for: alert) }
@@ -48,119 +48,123 @@ struct AlertBannerView: View {
 
     private func alertCard(_ alert: WeatherAlert) -> some View {
         let isExpanded = expandedAlertID == alert.id
+        let bg = alertColor(for: alert.severity)
 
-        return VStack(alignment: .leading, spacing: 0) {
-            // Tappable area — entire card except the ECCC link
+        return VStack(spacing: 0) {
             Button {
                 withAnimation(.easeInOut(duration: 0.25)) {
                     expandedAlertID = isExpanded ? nil : alert.id
                 }
             } label: {
-                VStack(alignment: .leading, spacing: 8) {
-                    // Header row
-                    HStack(spacing: 10) {
-                        Image(systemName: alertIcon(for: alert.severity))
-                            .font(.body.weight(.semibold))
-                            .foregroundStyle(alertColor(for: alert.severity))
+                HStack(spacing: 12) {
+                    Image(systemName: alertIcon(for: alert.severity))
+                        .font(.title3.weight(.semibold))
+                        .foregroundStyle(.white)
 
+                    VStack(alignment: .leading, spacing: 2) {
                         Text(alert.title)
                             .font(.subheadline.weight(.semibold))
-                            .foregroundStyle(.primary)
+                            .foregroundStyle(.white)
                             .multilineTextAlignment(.leading)
+                            .lineLimit(2)
 
-                        Spacer()
-
-                        Image(systemName: "chevron.down")
-                            .font(.caption.weight(.semibold))
-                            .foregroundStyle(.secondary)
-                            .rotationEffect(.degrees(isExpanded ? 180 : 0))
-                    }
-
-                    // AI summary — always visible
-                    if let summary = summaries[alert.id] {
-                        HStack(alignment: .top, spacing: 6) {
-                            Image(systemName: "sparkles")
-                                .font(.caption2)
-                                .foregroundStyle(.secondary)
-                            Text(summary)
+                        if !alert.expiryTime.isEmpty {
+                            Text("Expires at \(formatAlertTime(alert.expiryTime))")
                                 .font(.caption)
-                                .foregroundStyle(.secondary)
-                                .lineLimit(3)
-                        }
-                    } else if generatingIDs.contains(alert.id) {
-                        HStack(spacing: 6) {
-                            ProgressView()
-                                .controlSize(.mini)
-                            Text("Summarizing with Apple Intelligence…")
-                                .font(.caption2)
-                                .foregroundStyle(.tertiary)
+                                .foregroundStyle(.white.opacity(0.85))
                         }
                     }
 
-                    // Expanded details (description + times)
-                    if isExpanded {
-                        VStack(alignment: .leading, spacing: 6) {
-                            if !alert.description.isEmpty {
-                                Text(alert.description)
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                            }
+                    Spacer(minLength: 8)
 
-                            HStack(spacing: 16) {
-                                if !alert.issuedTime.isEmpty {
-                                    Label(formatAlertTime(alert.issuedTime), systemImage: "clock")
-                                        .font(.caption2)
-                                        .foregroundStyle(.tertiary)
-                                }
-                                if !alert.expiryTime.isEmpty {
-                                    Label("Until \(formatAlertTime(alert.expiryTime))", systemImage: "clock.badge.xmark")
-                                        .font(.caption2)
-                                        .foregroundStyle(.tertiary)
-                                }
-                            }
-                        }
-                        .transition(.opacity)
-                    }
+                    Image(systemName: "chevron.right")
+                        .font(.caption.weight(.bold))
+                        .foregroundStyle(.white.opacity(0.85))
+                        .rotationEffect(.degrees(isExpanded ? 90 : 0))
                 }
-                .padding(14)
+                .padding(.horizontal, 16)
+                .padding(.vertical, 14)
                 .frame(maxWidth: .infinity, alignment: .leading)
+                .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
 
-            // ECCC link — separate from the button so it opens the URL
-            if isExpanded, let url = URL(string: alert.url) {
-                Link(destination: url) {
-                    Label("View on Environment Canada", systemImage: "arrow.up.right.square")
-                        .font(.caption2.weight(.medium))
-                }
-                .padding(.horizontal, 14)
-                .padding(.bottom, 14)
-                .transition(.opacity)
+            if isExpanded {
+                expandedContent(for: alert)
+                    .transition(.opacity.combined(with: .move(edge: .top)))
             }
         }
-        .clipShape(RoundedRectangle(cornerRadius: 12))
-        .background {
-            RoundedRectangle(cornerRadius: 12)
-                .fill(alertColor(for: alert.severity).opacity(0.1))
-                .strokeBorder(alertColor(for: alert.severity).opacity(0.3), lineWidth: 1)
+        .background(
+            RoundedRectangle(cornerRadius: 14, style: .continuous).fill(bg)
+        )
+        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .shadow(color: bg.opacity(0.35), radius: 10, x: 0, y: 4)
+    }
+
+    @ViewBuilder
+    private func expandedContent(for alert: WeatherAlert) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Divider().background(.white.opacity(0.25))
+
+            if let summary = summaries[alert.id] {
+                HStack(alignment: .top, spacing: 6) {
+                    Image(systemName: "sparkles")
+                        .font(.caption2)
+                        .foregroundStyle(.white.opacity(0.9))
+                    Text(summary)
+                        .font(.caption)
+                        .foregroundStyle(.white.opacity(0.95))
+                }
+            } else if generatingIDs.contains(alert.id) {
+                HStack(spacing: 6) {
+                    ProgressView()
+                        .controlSize(.mini)
+                        .tint(.white)
+                    Text("Summarizing with Apple Intelligence…")
+                        .font(.caption2)
+                        .foregroundStyle(.white.opacity(0.85))
+                }
+            }
+
+            if !alert.description.isEmpty {
+                Text(alert.description)
+                    .font(.caption)
+                    .foregroundStyle(.white.opacity(0.9))
+            }
+
+            if !alert.issuedTime.isEmpty {
+                Label("Issued \(formatAlertTime(alert.issuedTime))", systemImage: "clock")
+                    .font(.caption2)
+                    .foregroundStyle(.white.opacity(0.8))
+            }
+
+            if let url = URL(string: alert.url) {
+                Link(destination: url) {
+                    Label("View on Environment Canada", systemImage: "arrow.up.right.square")
+                        .font(.caption2.weight(.semibold))
+                        .foregroundStyle(.white)
+                }
+                .padding(.top, 2)
+            }
         }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 12)
     }
 
     private func alertIcon(for severity: String) -> String {
         switch severity.lowercased() {
-        case "extreme": return "exclamationmark.triangle.fill"
-        case "severe":  return "exclamationmark.triangle.fill"
-        case "moderate": return "exclamationmark.circle.fill"
-        default:        return "info.circle.fill"
+        case "extreme", "severe": return "exclamationmark.triangle.fill"
+        case "moderate":          return "exclamationmark.circle.fill"
+        default:                  return "info.circle.fill"
         }
     }
 
     private func alertColor(for severity: String) -> Color {
         switch severity.lowercased() {
-        case "extreme": return .red
-        case "severe":  return .orange
-        case "moderate": return .yellow
-        default:        return .blue
+        case "extreme": return CarrotStyle.alertRed
+        case "severe":  return CarrotStyle.alertOrange
+        case "moderate": return CarrotStyle.alertYellow
+        default:        return CarrotStyle.accent
         }
     }
 

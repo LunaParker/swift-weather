@@ -10,11 +10,8 @@ struct DayOverviewCard: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            HStack {
-                Label("Today's Overview", systemImage: aiSummary != nil ? "apple.intelligence" : "doc.text")
-                    .font(.caption.weight(.medium))
-                    .textCase(.uppercase)
-                    .foregroundStyle(.secondary)
+            HStack(spacing: 6) {
+                CarrotSectionHeader("Today's Overview", systemImage: aiSummary != nil ? "apple.intelligence" : "doc.text")
                 if isGenerating {
                     ProgressView()
                         .controlSize(.small)
@@ -40,9 +37,7 @@ struct DayOverviewCard: View {
         }
         .animation(.easeInOut(duration: 0.3), value: aiSummary != nil)
         .animation(.easeInOut(duration: 0.3), value: isGenerating)
-        .padding(16)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .glassEffect(in: .rect(cornerRadius: 16))
+        .carrotCard()
         .task(id: weatherDataID) {
             await generateAISummary()
         }

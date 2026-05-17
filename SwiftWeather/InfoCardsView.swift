@@ -1,34 +1,53 @@
 import SwiftUI
 
+// MARK: - Reusable Card Container
+
+struct InfoCardContainer<Content: View>: View {
+    let title: String
+    let systemImage: String
+    @ViewBuilder let content: Content
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(spacing: 5) {
+                Image(systemName: systemImage)
+                    .font(.caption2.weight(.semibold))
+                Text(title)
+                    .font(.caption2.weight(.semibold))
+                    .textCase(.uppercase)
+                    .tracking(0.4)
+            }
+            .foregroundStyle(.secondary)
+
+            content
+                .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .frame(maxWidth: .infinity, minHeight: 96, alignment: .topLeading)
+        .carrotCard(padding: 14)
+    }
+}
+
 // MARK: - Sunrise & Sunset
 
 struct SunriseSunsetCard: View {
     let data: SunriseSunset
 
     var body: some View {
-        InfoCardContainer(title: "Sunrise & Sunset", systemImage: "sunrise.fill") {
-            VStack(alignment: .leading, spacing: 12) {
-                HStack {
+        InfoCardContainer(title: "Sun", systemImage: "sunrise.fill") {
+            VStack(alignment: .leading, spacing: 8) {
+                HStack(spacing: 8) {
                     Image(systemName: "sunrise.fill")
                         .foregroundStyle(.orange)
-                    VStack(alignment: .leading) {
-                        Text(formatTime(data.sunrise))
-                            .font(.title2.weight(.light))
-                        Text("Sunrise")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
+                    Text(formatTime(data.sunrise))
+                        .font(.callout.weight(.semibold))
+                    Text("Rise").font(.caption2).foregroundStyle(.secondary)
                 }
-                HStack {
+                HStack(spacing: 8) {
                     Image(systemName: "sunset.fill")
                         .foregroundStyle(.orange)
-                    VStack(alignment: .leading) {
-                        Text(formatTime(data.sunset))
-                            .font(.title2.weight(.light))
-                        Text("Sunset")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
+                    Text(formatTime(data.sunset))
+                        .font(.callout.weight(.semibold))
+                    Text("Set").font(.caption2).foregroundStyle(.secondary)
                 }
             }
         }
@@ -42,17 +61,17 @@ struct UVIndexCard: View {
 
     var body: some View {
         InfoCardContainer(title: "UV Index", systemImage: "sun.max.fill") {
-            VStack(alignment: .leading, spacing: 8) {
+            VStack(alignment: .leading, spacing: 6) {
                 Text("\(data.index)")
-                    .font(.title.weight(.light))
+                    .font(.title.weight(.semibold))
                 Text(data.level)
-                    .font(.callout)
+                    .font(.caption)
                     .foregroundStyle(.secondary)
 
                 GeometryReader { geo in
                     ZStack(alignment: .leading) {
                         Capsule()
-                            .fill(.quaternary)
+                            .fill(Color.secondary.opacity(0.15))
                         Capsule()
                             .fill(uvColor(for: data.index))
                             .frame(width: geo.size.width * min(Double(data.index) / 11.0, 1.0))
@@ -72,24 +91,18 @@ struct AirQualityCard: View {
     var body: some View {
         InfoCardContainer(title: "Air Quality", systemImage: "aqi.medium") {
             if let index = data.index {
-                VStack(alignment: .leading, spacing: 4) {
+                VStack(alignment: .leading, spacing: 2) {
                     Text("\(index)")
-                        .font(.title.weight(.light))
+                        .font(.title.weight(.semibold))
                     if let category = data.category {
                         Text(category)
-                            .font(.callout)
+                            .font(.caption)
                             .foregroundStyle(.secondary)
-                    }
-                    if let source = data.source {
-                        Text("Source: \(source)")
-                            .font(.caption2)
-                            .foregroundStyle(.tertiary)
-                            .padding(.top, 4)
                     }
                 }
             } else {
-                Text("No data available")
-                    .font(.callout)
+                Text("No data")
+                    .font(.caption)
                     .foregroundStyle(.secondary)
             }
         }
@@ -104,11 +117,11 @@ struct YesterdayCard: View {
     var body: some View {
         InfoCardContainer(title: "Yesterday", systemImage: "calendar.badge.clock") {
             if let entry = data.first {
-                VStack(alignment: .leading, spacing: 4) {
+                VStack(alignment: .leading, spacing: 2) {
                     HStack(alignment: .firstTextBaseline, spacing: 4) {
                         if let high = entry.high {
                             Text("\(Int(high.rounded()))°")
-                                .font(.title.weight(.light))
+                                .font(.title.weight(.semibold))
                         }
                         if entry.high != nil && entry.low != nil {
                             Text("/")
@@ -117,12 +130,12 @@ struct YesterdayCard: View {
                         }
                         if let low = entry.low {
                             Text("\(Int(low.rounded()))°")
-                                .font(.title2.weight(.light))
+                                .font(.title3.weight(.medium))
                                 .foregroundStyle(.secondary)
                         }
                     }
                     Text("High / Low")
-                        .font(.caption)
+                        .font(.caption2)
                         .foregroundStyle(.secondary)
                 }
             }
@@ -140,32 +153,29 @@ struct WindCard: View {
 
     var body: some View {
         InfoCardContainer(title: "Wind", systemImage: "wind") {
-            VStack(alignment: .leading, spacing: 8) {
+            VStack(alignment: .leading, spacing: 4) {
                 HStack(alignment: .firstTextBaseline, spacing: 4) {
                     Text("\(Int(wind.speed.rounded()))")
-                        .font(.title.weight(.light))
+                        .font(.title.weight(.semibold))
                     Text(speedUnit)
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
 
-                HStack(spacing: 8) {
+                HStack(spacing: 6) {
                     Image(systemName: "arrow.up")
                         .rotationEffect(.degrees(windDirectionDegrees(wind.direction)))
-                        .font(.body)
+                        .font(.caption.weight(.bold))
+                        .foregroundStyle(CarrotStyle.accent)
                     Text(wind.direction)
-                        .font(.callout)
+                        .font(.caption.weight(.medium))
                         .foregroundStyle(.secondary)
                 }
 
                 if let gust = wind.gust {
-                    HStack(spacing: 4) {
-                        Text("Gusts:")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                        Text("\(Int(gust.rounded())) \(speedUnit)")
-                            .font(.caption.weight(.medium))
-                    }
+                    Text("Gusts \(Int(gust.rounded())) \(speedUnit)")
+                        .font(.caption2)
+                        .foregroundStyle(.tertiary)
                 }
             }
         }
@@ -182,15 +192,15 @@ struct FeelsLikeCard: View {
         InfoCardContainer(title: "Feels Like", systemImage: "thermometer.medium") {
             VStack(alignment: .leading, spacing: 4) {
                 Text("\(Int(feelsLike.rounded()))°")
-                    .font(.title.weight(.light))
+                    .font(.title.weight(.semibold))
                 let diff = feelsLike - actual
                 if abs(diff) >= 1 {
-                    Text(diff < 0 ? "Wind is making it feel colder" : "Humidity is making it feel warmer")
-                        .font(.caption)
+                    Text(diff < 0 ? "Wind makes it feel colder" : "Humidity makes it feel warmer")
+                        .font(.caption2)
                         .foregroundStyle(.secondary)
                 } else {
-                    Text("Similar to the actual temperature")
-                        .font(.caption)
+                    Text("Close to actual")
+                        .font(.caption2)
                         .foregroundStyle(.secondary)
                 }
             }
@@ -206,11 +216,11 @@ struct HumidityCard: View {
 
     var body: some View {
         InfoCardContainer(title: "Humidity", systemImage: "humidity.fill") {
-            VStack(alignment: .leading, spacing: 4) {
+            VStack(alignment: .leading, spacing: 2) {
                 Text("\(Int(humidity.rounded()))%")
-                    .font(.title.weight(.light))
-                Text("The dew point is \(Int(dewPoint.rounded()))° right now")
-                    .font(.caption)
+                    .font(.title.weight(.semibold))
+                Text("Dew point \(Int(dewPoint.rounded()))°")
+                    .font(.caption2)
                     .foregroundStyle(.secondary)
             }
         }
@@ -224,14 +234,12 @@ struct PressureCard: View {
 
     var body: some View {
         InfoCardContainer(title: "Pressure", systemImage: "gauge.medium") {
-            VStack(alignment: .leading, spacing: 4) {
-                HStack(alignment: .firstTextBaseline, spacing: 4) {
-                    Text(String(format: "%.1f", pressure))
-                        .font(.title.weight(.light))
-                    Text("kPa")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
+            HStack(alignment: .firstTextBaseline, spacing: 4) {
+                Text(String(format: "%.1f", pressure))
+                    .font(.title.weight(.semibold))
+                Text("kPa")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
             }
         }
     }
@@ -249,27 +257,19 @@ struct VisibilityCard: View {
 
     var body: some View {
         InfoCardContainer(title: "Visibility", systemImage: "eye.fill") {
-            VStack(alignment: .leading, spacing: 4) {
+            VStack(alignment: .leading, spacing: 2) {
                 HStack(alignment: .firstTextBaseline, spacing: 4) {
                     Text("\(Int(visibility.rounded()))")
-                        .font(.title.weight(.light))
+                        .font(.title.weight(.semibold))
                     Text(distanceUnit)
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
-                if visibility >= clearThreshold {
-                    Text("It's perfectly clear right now")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                } else if visibility >= goodThreshold {
-                    Text("Good visibility")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                } else {
-                    Text("Limited visibility")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
+                Text(visibility >= clearThreshold ? "Perfectly clear"
+                     : visibility >= goodThreshold ? "Good"
+                     : "Limited")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
             }
         }
     }
@@ -282,29 +282,22 @@ struct PollenCard: View {
 
     var body: some View {
         InfoCardContainer(title: "Pollen", systemImage: "leaf.fill") {
-            VStack(alignment: .leading, spacing: 8) {
+            VStack(alignment: .leading, spacing: 4) {
                 Text("\(data.index)")
-                    .font(.title.weight(.light))
+                    .font(.title.weight(.semibold))
                 Text(data.level)
-                    .font(.callout)
+                    .font(.caption)
                     .foregroundStyle(.secondary)
 
                 GeometryReader { geo in
                     ZStack(alignment: .leading) {
-                        Capsule()
-                            .fill(.quaternary)
+                        Capsule().fill(Color.secondary.opacity(0.15))
                         Capsule()
                             .fill(pollenColor(for: data.index))
                             .frame(width: geo.size.width * min(Double(data.index) / 5.0, 1.0))
                     }
                 }
                 .frame(height: 5)
-
-                if !data.species.isEmpty {
-                    Text(data.species.joined(separator: ", "))
-                        .font(.caption)
-                        .foregroundStyle(.tertiary)
-                }
             }
         }
     }
@@ -327,14 +320,14 @@ struct HealthCard: View {
 
     var body: some View {
         InfoCardContainer(title: "Health", systemImage: "heart.fill") {
-            VStack(alignment: .leading, spacing: 6) {
+            VStack(alignment: .leading, spacing: 4) {
                 ForEach(indices.prefix(3)) { index in
                     HStack {
                         Text(index.name)
-                            .font(.callout)
+                            .font(.caption.weight(.medium))
                         Spacer()
                         Text(index.risk)
-                            .font(.callout.weight(.medium))
+                            .font(.caption.weight(.semibold))
                             .foregroundStyle(healthRiskColor(index.value))
                     }
                 }
@@ -366,23 +359,20 @@ struct MonthlyAverageCard: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Label("\(monthName) Averages", systemImage: "chart.bar.fill")
-                .font(.caption.weight(.medium))
-                .textCase(.uppercase)
-                .foregroundStyle(.secondary)
+            CarrotSectionHeader("\(monthName) Averages", systemImage: "chart.bar.fill")
 
-            HStack(alignment: .firstTextBaseline, spacing: 4) {
+            HStack(alignment: .firstTextBaseline, spacing: 6) {
                 Text("\(Int(data.avgHigh.rounded()))°")
-                    .font(.title.weight(.light))
+                    .font(.title.weight(.semibold))
                 Text("/")
                     .font(.body)
                     .foregroundStyle(.secondary)
                 Text("\(Int(data.avgLow.rounded()))°")
-                    .font(.title2.weight(.light))
+                    .font(.title3.weight(.medium))
                     .foregroundStyle(.secondary)
             }
             Text("Avg High / Low")
-                .font(.caption)
+                .font(.caption2)
                 .foregroundStyle(.secondary)
 
             if !dailyAverages.isEmpty {
@@ -391,14 +381,13 @@ struct MonthlyAverageCard: View {
                     .padding(.top, 4)
             }
 
-            Text("Humidity: \(Int(data.avgHumidity.rounded()))%")
-                .font(.caption)
+            Text("Avg humidity \(Int(data.avgHumidity.rounded()))%")
+                .font(.caption2)
                 .foregroundStyle(.tertiary)
                 .padding(.top, 2)
         }
-        .padding(16)
         .frame(maxWidth: .infinity, alignment: .topLeading)
-        .glassEffect(in: .rect(cornerRadius: 16))
+        .carrotCard()
     }
 
     private var dailyTemperatureChart: some View {
@@ -424,7 +413,10 @@ struct MonthlyAverageCard: View {
                         RoundedRectangle(cornerRadius: 1)
                             .fill(
                                 LinearGradient(
-                                    colors: [.orange.opacity(0.8), .blue.opacity(0.5)],
+                                    colors: [
+                                        temperatureColor(forCelsius: day.high),
+                                        temperatureColor(forCelsius: day.low),
+                                    ],
                                     startPoint: .top, endPoint: .bottom
                                 )
                             )
@@ -434,27 +426,5 @@ struct MonthlyAverageCard: View {
                 }
             }
         }
-    }
-}
-
-// MARK: - Reusable Card Container
-
-struct InfoCardContainer<Content: View>: View {
-    let title: String
-    let systemImage: String
-    @ViewBuilder let content: Content
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Label(title, systemImage: systemImage)
-                .font(.caption.weight(.medium))
-                .textCase(.uppercase)
-                .foregroundStyle(.secondary)
-
-            content
-        }
-        .padding(16)
-        .frame(maxWidth: .infinity, minHeight: 120, alignment: .topLeading)
-        .glassEffect(in: .rect(cornerRadius: 16))
     }
 }

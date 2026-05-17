@@ -29,25 +29,9 @@ struct ContentView: View {
     @AppStorage("unitSystem") private var unitSystem: String = "metric"
     @AppStorage("onboardingComplete") private var onboardingComplete = false
     @State private var showOnboarding = false
+    @State private var isSearchPresented = false
     @Environment(\.dismissSearch) private var dismissSearch
     @Environment(\.colorScheme) private var colorScheme
-
-    /// Whether the effective background behind the header text is light.
-    /// In "clear" background style the gradient sits at 15% opacity and the
-    /// underlying system chrome dominates, so we defer to the system color
-    /// scheme. In "frosted" style the gradient contributes meaningfully, so
-    /// we only treat the background as light when BOTH the system is in
-    /// light mode AND the current weather gradient is itself light — that
-    /// way dark-mode users never get black text on a dark blend.
-    private var lightBackground: Bool {
-        guard colorScheme == .light else { return false }
-        guard backgroundStyle == "frosted" else { return true }
-        guard let icon = viewModel.weather?.current.weather.icon else { return true }
-        return isLightBackground(for: icon)
-    }
-    private var headerPrimary: Color { lightBackground ? .black : .white }
-    private var headerSecondary: Color { lightBackground ? .black.opacity(0.6) : .white.opacity(0.7) }
-    private var headerTertiary: Color { lightBackground ? .black.opacity(0.45) : .white.opacity(0.5) }
 
     var body: some View {
         NavigationStack {
@@ -67,7 +51,7 @@ struct ContentView: View {
                         .disabled(viewModel.isLoading || viewModel.selectedLocation == nil)
                     }
                 }
-                .searchable(text: $viewModel.searchQuery, prompt: "Search for a city...")
+                .searchable(text: $viewModel.searchQuery, isPresented: $isSearchPresented, prompt: "Search for a city...")
                 .searchSuggestions {
                     ForEach(viewModel.searchResults) { location in
                         Button {
@@ -124,40 +108,65 @@ struct ContentView: View {
                 .ignoresSafeArea()
             #endif
 
-            backgroundGradient
-                .opacity(backgroundStyle == "frosted" ? 0.45 : 0.15)
+            // Solid screen background — the Carrot look
+            CarrotStyle.screenBackground(colorScheme)
                 .ignoresSafeArea()
 
-            if viewModel.isLoading {
-                loadingView
-                    .onAppear { scrolledPastHeader = false }
-            } else if let weather = viewModel.weather,
-                      let location = viewModel.selectedLocation {
-                weatherScrollView(weather: weather, location: location)
-            } else if let error = viewModel.errorMessage {
-                errorView(error)
-                    .onAppear { scrolledPastHeader = false }
-            } else {
-                emptyStateView
-                    .onAppear { scrolledPastHeader = false }
+            // Soft gradient halo behind the hero — fades into the screen bg
+            heroBackdrop
+                .ignoresSafeArea()
+
+            Group {
+                if viewModel.isLoading {
+                    loadingView
+                        .onAppear { scrolledPastHeader = false }
+                } else if let weather = viewModel.weather,
+                          let location = viewModel.selectedLocation {
+                    weatherScrollView(weather: weather, location: location)
+                } else if let error = viewModel.errorMessage {
+                    errorView(error)
+                        .onAppear { scrolledPastHeader = false }
+                } else {
+                    emptyStateView
+                        .onAppear { scrolledPastHeader = false }
+                }
+            }
+
+            // Floating search pill — visible whenever we have a location selected
+            if viewModel.selectedLocation != nil {
+                floatingSearchPill
             }
         }
     }
 
-    // MARK: - Background
+    // MARK: - Hero backdrop
 
-    private var backgroundGradient: some View {
-        Group {
-            if let weather = viewModel.weather {
-                weatherGradient(for: weather.current.weather.icon)
-            } else {
-                LinearGradient(
-                    colors: [
-                        Color(red: 0.18, green: 0.45, blue: 0.92),
-                        Color(red: 0.42, green: 0.72, blue: 1.0),
-                    ],
-                    startPoint: .top, endPoint: .bottom
-                )
+    private var heroBackdrop: some View {
+        GeometryReader { geo in
+            let iconCode = viewModel.weather?.current.weather.icon ?? 1
+            let gradient = weatherGradient(for: iconCode)
+            let isLight = isLightBackground(for: iconCode)
+            let intensity: Double = backgroundStyle == "frosted" ? 0.50 : 0.30
+
+            // The weather gradient occupies the top ~45% and fades to the
+            // screen background colour beneath. Dark mode keeps the band
+            // tighter so it doesn't dominate.
+            let bandHeight = geo.size.height * (colorScheme == .dark ? 0.35 : 0.45)
+
+            ZStack(alignment: .top) {
+                gradient
+                    .frame(height: bandHeight)
+                    .mask(
+                        LinearGradient(
+                            colors: [
+                                .black.opacity(intensity),
+                                .black.opacity(intensity * 0.6),
+                                .clear,
+                            ],
+                            startPoint: .top, endPoint: .bottom
+                        )
+                    )
+                    .opacity(isLight ? 0.7 : 1.0)
             }
         }
     }
@@ -181,79 +190,44 @@ struct ContentView: View {
         let prominentTemp = showFeelsLike ? weather.current.feelsLike : weather.current.temperature
         let secondaryTemp = showFeelsLike ? weather.current.temperature : weather.current.feelsLike
         let secondaryLabel = showFeelsLike ? "Actual" : "Feels like"
-
-        let primary = headerPrimary
-        let secondary = headerSecondary
-        let tertiary = headerTertiary
+        let today = weather.daily.first
 
         return HStack(spacing: 0) {
-            // Left panel — fixed, non-scrolling
-            VStack(alignment: .leading, spacing: 0) {
+            VStack(alignment: .center, spacing: 0) {
                 Spacer()
-
-                VStack(alignment: .leading, spacing: 20) {
-                    Image(systemName: weatherSymbol(for: weather.current.weather.icon))
-                        .symbolRenderingMode(.multicolor)
-                        .font(.system(size: 96))
-                        .shadow(color: .black.opacity(0.2), radius: 8, y: 4)
-
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text("\(Int(prominentTemp.rounded()))°")
-                            .font(.system(size: 80, weight: .thin))
-                            .foregroundStyle(primary)
-
-                        Text(weather.current.weather.text)
-                            .font(.title2.weight(.medium))
-                            .foregroundStyle(primary.opacity(0.85))
-                    }
-
-                    VStack(alignment: .leading, spacing: 6) {
-                        Text(location.name)
-                            .font(.title3.weight(.medium))
-                            .foregroundStyle(secondary)
-                        Text(location.subtitle)
-                            .font(.subheadline)
-                            .foregroundStyle(tertiary)
-                    }
-
-                    HStack(spacing: 8) {
-                        Text("\(secondaryLabel) \(Int(secondaryTemp.rounded()))°")
-                        if let today = weather.daily.first {
-                            Text("·")
-                                .foregroundStyle(tertiary)
-                            Text("H:\(Int(today.day.temperature.rounded()))°  L:\(Int(today.night.temperature.rounded()))°")
-                        }
-                    }
-                    .font(.subheadline)
-                    .foregroundStyle(secondary)
-                }
-                .padding(.leading, 56)
-
+                heroBlock(
+                    location: location,
+                    weather: weather,
+                    prominentTemp: prominentTemp,
+                    secondaryLabel: secondaryLabel,
+                    secondaryTemp: secondaryTemp,
+                    today: today,
+                    alignment: .center
+                )
                 Spacer()
-
                 attributionLink(for: location)
-                    .padding(.leading, 56)
                     .padding(.bottom, 24)
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
+            .frame(maxWidth: .infinity)
+            .padding(.horizontal, 32)
 
-            // Right panel — scrollable cards
             ScrollView {
                 VStack(spacing: 16) {
                     if !weather.alerts.isEmpty {
                         AlertBannerView(alerts: weather.alerts)
                     }
                     DayOverviewCard(hourly: weather.hourly, daily: weather.daily)
-                    HourlyForecastView(periods: weather.hourly)
                     PrecipitationCard(hourly: weather.hourly, daily: weather.daily)
+                    HourlyForecastView(periods: weather.hourly)
                     DailyForecastView(days: weather.daily)
                     infoCardsGrid(weather: weather)
                 }
                 .padding(.horizontal, 20)
                 .padding(.top, 8)
-                .padding(.bottom, 40)
+                .padding(.bottom, 80)
             }
             .frame(maxWidth: .infinity)
+            .scrollContentBackground(.hidden)
             .refreshable {
                 await viewModel.refreshWeather()
             }
@@ -264,28 +238,44 @@ struct ContentView: View {
     // MARK: - Narrow Layout (single-column scroll)
 
     private func narrowWeatherLayout(weather: AllWeatherData, location: Location) -> some View {
-        ScrollView {
-            VStack(spacing: 0) {
-                locationHeader(weather: weather, location: location)
-                    .padding(.bottom, 24)
+        let showFeelsLike = temperatureDisplay == "feelsLike"
+        let prominentTemp = showFeelsLike ? weather.current.feelsLike : weather.current.temperature
+        let secondaryTemp = showFeelsLike ? weather.current.temperature : weather.current.feelsLike
+        let secondaryLabel = showFeelsLike ? "Actual" : "Feels like"
+        let today = weather.daily.first
 
-                VStack(spacing: 16) {
+        return ScrollView {
+            VStack(spacing: 0) {
+                heroBlock(
+                    location: location,
+                    weather: weather,
+                    prominentTemp: prominentTemp,
+                    secondaryLabel: secondaryLabel,
+                    secondaryTemp: secondaryTemp,
+                    today: today,
+                    alignment: .center
+                )
+                .padding(.top, 8)
+                .padding(.bottom, 24)
+
+                VStack(spacing: 14) {
                     if !weather.alerts.isEmpty {
                         AlertBannerView(alerts: weather.alerts)
                     }
                     DayOverviewCard(hourly: weather.hourly, daily: weather.daily)
-                    HourlyForecastView(periods: weather.hourly)
                     PrecipitationCard(hourly: weather.hourly, daily: weather.daily)
+                    HourlyForecastView(periods: weather.hourly)
                     DailyForecastView(days: weather.daily)
                     infoCardsGrid(weather: weather)
                 }
-                .padding(.horizontal, 20)
+                .padding(.horizontal, 16)
 
                 attributionLink(for: location)
                     .padding(.top, 24)
-                    .padding(.bottom, 40)
+                    .padding(.bottom, 100)
             }
         }
+        .scrollContentBackground(.hidden)
         .refreshable {
             await viewModel.refreshWeather()
         }
@@ -298,110 +288,128 @@ struct ContentView: View {
         }
     }
 
-    private func locationHeader(weather: AllWeatherData, location: Location) -> some View {
-        let showFeelsLike = temperatureDisplay == "feelsLike"
-        let prominentTemp = showFeelsLike ? weather.current.feelsLike : weather.current.temperature
-        let secondaryTemp = showFeelsLike ? weather.current.temperature : weather.current.feelsLike
-        let secondaryLabel = showFeelsLike ? "Actual" : "Feels like"
+    // MARK: - Carrot-style hero
 
-        let primary = headerPrimary
-        let secondary = headerSecondary
-        let tertiary = headerTertiary
-
-        return ViewThatFits(in: .horizontal) {
-            // Wide layout: 2 columns
-            HStack(alignment: .top, spacing: 16) {
-                temperatureColumn(prominentTemp: prominentTemp, icon: weather.current.weather.icon, color: primary)
-                detailsColumn(
-                    location: location, weather: weather,
-                    secondaryLabel: secondaryLabel, secondaryTemp: secondaryTemp,
-                    primary: primary, secondary: secondary, tertiary: tertiary
-                )
-                Spacer(minLength: 0)
-            }
-            .padding(.horizontal, 20)
-            .padding(.top, 8)
-
-            // Narrow layout: stacked
-            VStack(alignment: .leading, spacing: 6) {
-                temperatureColumn(prominentTemp: prominentTemp, icon: weather.current.weather.icon, color: primary)
-                detailsColumn(
-                    location: location, weather: weather,
-                    secondaryLabel: secondaryLabel, secondaryTemp: secondaryTemp,
-                    primary: primary, secondary: secondary, tertiary: tertiary
-                )
-            }
-            .padding(.horizontal, 20)
-            .padding(.top, 8)
-        }
-    }
-
-    private func temperatureColumn(prominentTemp: Double, icon: Int, color: Color) -> some View {
-        HStack(alignment: .firstTextBaseline, spacing: 6) {
-            Text("\(Int(prominentTemp.rounded()))°")
-                .font(.system(size: 64, weight: .thin))
-                .foregroundStyle(color)
-            Image(systemName: weatherSymbol(for: icon))
-                .symbolRenderingMode(.multicolor)
-                .font(.system(size: 28))
-                .shadow(color: .black.opacity(0.15), radius: 4, y: 2)
-                .alignmentGuide(.firstTextBaseline) { d in d[.bottom] - 4 }
-        }
-    }
-
-    private func detailsColumn(location: Location, weather: AllWeatherData, secondaryLabel: String, secondaryTemp: Double, primary: Color, secondary: Color, tertiary: Color) -> some View {
-        VStack(alignment: .leading, spacing: 4) {
+    @ViewBuilder
+    private func heroBlock(
+        location: Location,
+        weather: AllWeatherData,
+        prominentTemp: Double,
+        secondaryLabel: String,
+        secondaryTemp: Double,
+        today: DailyForecast?,
+        alignment: HorizontalAlignment
+    ) -> some View {
+        VStack(alignment: alignment, spacing: 6) {
             Text(location.name)
-                .font(.system(size: 28, weight: .medium))
-                .foregroundStyle(primary)
+                .font(.title3.weight(.semibold))
+                .foregroundStyle(.primary)
+
             Text(location.subtitle)
-                .font(.subheadline)
-                .foregroundStyle(secondary)
-            Text(weather.current.weather.text)
-                .font(.body)
-                .foregroundStyle(lightBackground ? primary.opacity(0.75) : primary.opacity(0.85))
-                .padding(.top, 1)
-            HStack(spacing: 8) {
-                Text("\(secondaryLabel) \(Int(secondaryTemp.rounded()))°")
-                if let today = weather.daily.first {
-                    Text("·")
-                        .foregroundStyle(tertiary)
-                    Text("H:\(Int(today.day.temperature.rounded()))°  L:\(Int(today.night.temperature.rounded()))°")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+
+            Text("\(Int(prominentTemp.rounded()))°")
+                .font(.system(size: 88, weight: .thin))
+                .foregroundStyle(.primary)
+                .padding(.top, 6)
+
+            if let today {
+                HStack(spacing: 6) {
+                    Label("\(Int(today.day.temperature.rounded()))°", systemImage: "arrow.up")
+                        .labelStyle(.titleAndIcon)
+                    Label("\(Int(today.night.temperature.rounded()))°", systemImage: "arrow.down")
+                        .labelStyle(.titleAndIcon)
+                }
+                .font(.subheadline.weight(.medium))
+                .foregroundStyle(.secondary)
+            }
+
+            Text(conditionSummary(weather: weather, secondaryLabel: secondaryLabel, secondaryTemp: secondaryTemp))
+                .font(.callout)
+                .foregroundStyle(.primary)
+                .multilineTextAlignment(.center)
+                .padding(.top, 6)
+                .padding(.horizontal, 16)
+        }
+        .frame(maxWidth: .infinity)
+    }
+
+    private func conditionSummary(weather: AllWeatherData, secondaryLabel: String, secondaryTemp: Double) -> String {
+        let text = weather.current.weather.text
+        if !text.isEmpty {
+            return "\(text). \(secondaryLabel) \(Int(secondaryTemp.rounded()))°."
+        }
+        return "\(secondaryLabel) \(Int(secondaryTemp.rounded()))°."
+    }
+
+    // MARK: - Info cards grid
+
+    @ViewBuilder
+    private func infoCardsGrid(weather: AllWeatherData) -> some View {
+        VStack(spacing: 12) {
+            LazyVGrid(
+                columns: [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)],
+                spacing: 12
+            ) {
+                FeelsLikeCard(feelsLike: weather.current.feelsLike, actual: weather.current.temperature)
+                WindCard(wind: weather.current.wind)
+                UVIndexCard(data: weather.uv)
+                SunriseSunsetCard(data: weather.sun)
+                HumidityCard(humidity: weather.current.humidity, dewPoint: weather.current.dewPoint)
+                PressureCard(pressure: weather.current.pressure)
+                VisibilityCard(visibility: weather.current.visibility)
+                if let aq = weather.airQuality {
+                    AirQualityCard(data: aq)
+                }
+                if let pollen = weather.pollen {
+                    PollenCard(data: pollen)
+                }
+                if !weather.healthIndices.isEmpty {
+                    HealthCard(indices: weather.healthIndices)
+                }
+                if !weather.yesterday.isEmpty {
+                    YesterdayCard(data: weather.yesterday)
                 }
             }
-            .font(.caption)
-            .foregroundStyle(secondary)
-        }
-    }
 
-    private func infoCardsGrid(weather: AllWeatherData) -> some View {
-        LazyVGrid(
-            columns: [GridItem(.adaptive(minimum: 260), spacing: 16)],
-            spacing: 16
-        ) {
-            FeelsLikeCard(feelsLike: weather.current.feelsLike, actual: weather.current.temperature)
-            WindCard(wind: weather.current.wind)
-            UVIndexCard(data: weather.uv)
-            SunriseSunsetCard(data: weather.sun)
-            HumidityCard(humidity: weather.current.humidity, dewPoint: weather.current.dewPoint)
-            PressureCard(pressure: weather.current.pressure)
-            VisibilityCard(visibility: weather.current.visibility)
-            if let aq = weather.airQuality {
-                AirQualityCard(data: aq)
-            }
-            if let pollen = weather.pollen {
-                PollenCard(data: pollen)
-            }
-            if !weather.healthIndices.isEmpty {
-                HealthCard(indices: weather.healthIndices)
-            }
             if let avg = weather.monthlyAverage {
                 MonthlyAverageCard(data: avg, dailyAverages: weather.dailyAverages)
             }
-            if !weather.yesterday.isEmpty {
-                YesterdayCard(data: weather.yesterday)
-            }
         }
+    }
+
+    // MARK: - Floating search pill
+
+    private var floatingSearchPill: some View {
+        VStack {
+            Spacer()
+            HStack(spacing: 8) {
+                Button {
+                    isSearchPresented = true
+                } label: {
+                    HStack(spacing: 8) {
+                        Image(systemName: "magnifyingglass")
+                            .font(.subheadline.weight(.semibold))
+                        Text("Search")
+                            .font(.subheadline.weight(.semibold))
+                    }
+                    .foregroundStyle(.primary)
+                    .padding(.horizontal, 22)
+                    .padding(.vertical, 12)
+                }
+                .buttonStyle(.plain)
+            }
+            .background(.regularMaterial, in: Capsule())
+            .overlay(
+                Capsule()
+                    .stroke(Color.primary.opacity(0.08), lineWidth: 1)
+            )
+            .shadow(color: .black.opacity(0.15), radius: 14, x: 0, y: 4)
+            .padding(.bottom, 22)
+        }
+        .frame(maxWidth: .infinity)
+        .allowsHitTesting(true)
     }
 
     // MARK: - Attribution
@@ -419,7 +427,7 @@ struct ContentView: View {
                 Image(systemName: "arrow.up.right")
             }
             .font(.caption)
-            .foregroundStyle(headerTertiary)
+            .foregroundStyle(.tertiary)
         }
     }
 
@@ -447,7 +455,7 @@ struct ContentView: View {
             }
         } else {
             ScrollView {
-                VStack(alignment: .leading, spacing: 16) {
+                VStack(alignment: .leading, spacing: 14) {
                     if let current = viewModel.currentLocationWeather {
                         Button {
                             viewModel.selectLocation(current.location)
@@ -462,9 +470,7 @@ struct ContentView: View {
                                 .foregroundStyle(.secondary)
                             Spacer()
                         }
-                        .padding(16)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .glassEffect(in: .rect(cornerRadius: 16))
+                        .carrotCard()
                     }
 
                     if !filteredRecents.isEmpty {
@@ -483,10 +489,11 @@ struct ContentView: View {
                         }
                     }
                 }
-                .padding(.horizontal, 20)
+                .padding(.horizontal, 16)
                 .padding(.top, 8)
-                .padding(.bottom, 40)
+                .padding(.bottom, 100)
             }
+            .scrollContentBackground(.hidden)
         }
     }
 
@@ -497,10 +504,10 @@ struct ContentView: View {
                     if isCurrentLocation {
                         Image(systemName: "location.fill")
                             .font(.caption)
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(CarrotStyle.accent)
                     }
                     Text(recent.location.name)
-                        .font(.title3.weight(.medium))
+                        .font(.title3.weight(.semibold))
                         .foregroundStyle(.primary)
                 }
                 Text(recent.location.subtitle)
@@ -536,9 +543,7 @@ struct ContentView: View {
                 }
             }
         }
-        .padding(16)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .glassEffect(in: .rect(cornerRadius: 16))
+        .carrotCard()
         .contentShape(Rectangle())
     }
 

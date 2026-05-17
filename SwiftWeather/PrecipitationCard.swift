@@ -20,51 +20,70 @@ struct PrecipitationCard: View {
     private var rainUnit: String { unitSystem == "imperial" ? "in" : "mm" }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack {
-                Label("Precipitation", systemImage: "umbrella.fill")
-                    .font(.caption.weight(.medium))
-                    .textCase(.uppercase)
-                    .foregroundStyle(.secondary)
+        VStack(alignment: .leading, spacing: 14) {
+            // Heading: umbrella + Carrot-style headline sentence
+            HStack(spacing: 8) {
+                Image(systemName: headlineIcon)
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(CarrotStyle.precipBlue)
+                Text(headlineText)
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(.primary)
+                Spacer(minLength: 4)
                 if isGenerating {
-                    ProgressView()
-                        .controlSize(.small)
+                    ProgressView().controlSize(.small)
                 }
             }
 
-            // Summary text
+            // AI / fallback explanatory sentence (smaller, secondary)
             if let summary = aiSummary {
                 Text(summary)
-                    .font(.callout)
-                    .transition(.opacity.combined(with: .blurReplace))
-            } else if isGenerating {
-                Text("Analyzing precipitation…")
-                    .font(.callout)
+                    .font(.caption)
                     .foregroundStyle(.secondary)
-                    .transition(.opacity)
-            } else {
-                Text(fallbackSummary)
-                    .font(.callout)
-                    .transition(.opacity)
+                    .transition(.opacity.combined(with: .blurReplace))
             }
 
             // Bar chart
             precipitationChart
-                .frame(height: 80)
+                .frame(height: 92)
 
-            // Details row
+            // Details
             if maxPop > 0 {
                 detailsRow
+                    .padding(.top, 2)
             }
         }
         .animation(.easeInOut(duration: 0.3), value: aiSummary != nil)
         .animation(.easeInOut(duration: 0.3), value: isGenerating)
-        .padding(16)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .glassEffect(in: .rect(cornerRadius: 16))
+        .carrotCard()
         .task(id: precipDataID) {
             await generateAISummary()
         }
+    }
+
+    // MARK: - Carrot-style headline
+
+    private var headlineIcon: String {
+        if totalSnow > 0 { return "snowflake" }
+        if maxPop >= precipThreshold { return "umbrella.fill" }
+        return "umbrella"
+    }
+
+    private var headlineText: String {
+        let threshold = precipThreshold
+        if maxPop < threshold {
+            return "No Precipitation Expected"
+        }
+        let isCurrentlyPrecip = todayPeriods.first.map { $0.pop >= threshold } ?? false
+        if isCurrentlyPrecip {
+            if let stopPeriod = todayPeriods.dropFirst().first(where: { $0.pop < threshold }) {
+                return "Rain Easing by \(formatHour(stopPeriod.timeLocal))"
+            }
+            return "Rain Through the Day"
+        } else if let startPeriod = todayPeriods.first(where: { $0.pop >= threshold }) {
+            return "Rain Likely \(formatHour(startPeriod.timeLocal))"
+        }
+        return "\(maxPop)% Chance of Rain"
     }
 
     // MARK: - AI Summary
@@ -101,11 +120,9 @@ struct PrecipitationCard: View {
             }
             let response = try await session.respond(to: prompt)
             var text = response.content.trimmingCharacters(in: .whitespacesAndNewlines)
-            // Strip any Markdown artifacts the model may have included
             text = text.replacingOccurrences(of: "**", with: "")
                 .replacingOccurrences(of: "* ", with: "")
                 .replacingOccurrences(of: "- ", with: "")
-            // If multi-line, keep only the first sentence
             if let firstLine = text.components(separatedBy: .newlines).first(where: { !$0.isEmpty }) {
                 text = firstLine
             }
@@ -142,29 +159,6 @@ struct PrecipitationCard: View {
         return lines.joined(separator: "\n")
     }
 
-    // MARK: - Fallback Summary
-
-    private var fallbackSummary: String {
-        let threshold = precipThreshold
-        if maxPop < threshold {
-            return "No precipitation expected today."
-        }
-
-        let isCurrentlyRaining = todayPeriods.first.map { $0.pop >= threshold } ?? false
-
-        if isCurrentlyRaining {
-            if let stopPeriod = todayPeriods.dropFirst().first(where: { $0.pop < threshold }) {
-                return "Precipitation expected to end by \(formatHour(stopPeriod.timeLocal).lowercased())."
-            }
-            return "Precipitation expected throughout the day."
-        } else {
-            if let startPeriod = todayPeriods.first(where: { $0.pop >= threshold }) {
-                return "Precipitation likely starting \(formatHour(startPeriod.timeLocal).lowercased())."
-            }
-            return "\(maxPop)% chance of precipitation today."
-        }
-    }
-
     // MARK: - Bar Chart
 
     private var precipitationChart: some View {
@@ -178,20 +172,18 @@ struct PrecipitationCard: View {
             let barWidth = (geo.size.width - totalSpacing) / CGFloat(barCount)
 
             return AnyView(
-                VStack(spacing: 4) {
-                    // Bars
+                VStack(spacing: 6) {
                     HStack(alignment: .bottom, spacing: spacing) {
                         ForEach(Array(periods.enumerated()), id: \.element.id) { index, period in
-                            precipBarView(period: period, index: index, maxHeight: geo.size.height - 20, width: barWidth)
+                            precipBarView(period: period, index: index, maxHeight: geo.size.height - 22, width: barWidth)
                         }
                     }
                     .frame(maxHeight: .infinity, alignment: .bottom)
 
-                    // Time labels
                     HStack(spacing: spacing) {
                         ForEach(Array(periods.enumerated()), id: \.element.id) { index, period in
                             Text(shortPeriodLabel(period.timeLocal))
-                                .font(.system(size: 9))
+                                .font(.system(size: 9, weight: .medium))
                                 .foregroundStyle(hoveredIndex == index ? .primary : .secondary)
                                 .frame(width: barWidth)
                         }
@@ -207,14 +199,13 @@ struct PrecipitationCard: View {
         let barHeight = max(minBarHeight, maxHeight * fraction)
         let isHovered = hoveredIndex == index
 
-        return RoundedRectangle(cornerRadius: 3)
+        return RoundedRectangle(cornerRadius: 4)
             .fill(precipBarColor(pop: period.pop, hovered: isHovered))
             .frame(width: width, height: period.pop > 0 ? barHeight : minBarHeight)
             .overlay(alignment: .top) {
                 if isHovered {
                     precipTooltip(for: period)
                         .offset(y: -4)
-                        .anchorPreference(key: TooltipKey.self, value: .bounds) { $0 }
                         .transition(.opacity)
                 }
             }
@@ -237,7 +228,7 @@ struct PrecipitationCard: View {
         return VStack(alignment: .leading, spacing: 3) {
             Text("\(period.pop)%")
                 .font(.caption.weight(.semibold))
-                .foregroundStyle(.cyan)
+                .foregroundStyle(CarrotStyle.precipBlue)
 
             if !precipType.isEmpty {
                 Text(precipType)
@@ -257,61 +248,48 @@ struct PrecipitationCard: View {
             }
         }
         .padding(8)
-        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 8))
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 8))
         .fixedSize()
         .offset(y: -56)
     }
 
-    private struct TooltipKey: PreferenceKey {
-        static let defaultValue: Anchor<CGRect>? = nil
-        static func reduce(value: inout Anchor<CGRect>?, nextValue: () -> Anchor<CGRect>?) {
-            value = nextValue() ?? value
-        }
-    }
-
     private func precipBarColor(pop: Int, hovered: Bool = false) -> Color {
-        if hovered { return .cyan }
+        if hovered { return CarrotStyle.precipBlue }
         switch pop {
-        case 0:       return .secondary.opacity(0.15)
-        case 1..<30:  return .cyan.opacity(0.3)
-        case 30..<60: return .cyan.opacity(0.55)
-        case 60..<80: return .cyan.opacity(0.75)
-        default:      return .cyan
+        case 0:       return Color.secondary.opacity(0.12)
+        case 1..<30:  return CarrotStyle.precipBlue.opacity(0.35)
+        case 30..<60: return CarrotStyle.precipBlue.opacity(0.6)
+        case 60..<80: return CarrotStyle.precipBlue.opacity(0.8)
+        default:      return CarrotStyle.precipBlue
         }
     }
 
     // MARK: - Details Row
 
     private var detailsRow: some View {
-        HStack(spacing: 16) {
-            VStack(alignment: .leading, spacing: 2) {
-                Text("Chance")
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
-                Text("\(maxPop)%")
-                    .font(.callout.weight(.medium))
-                    .foregroundStyle(.cyan)
-            }
+        HStack(spacing: 24) {
+            metric(label: "Chance", value: "\(maxPop)%", tint: CarrotStyle.precipBlue)
 
             if totalRain > 0 {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("Rain")
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
-                    Text(String(format: "%.1f %@", totalRain, rainUnit))
-                        .font(.callout.weight(.medium))
-                }
+                metric(label: "Rain", value: String(format: "%.1f %@", totalRain, rainUnit), tint: .primary)
             }
 
             if totalSnow > 0 {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("Snow")
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
-                    Text(String(format: "%.1f %@", totalSnow, unitSystem == "imperial" ? "in" : "cm"))
-                        .font(.callout.weight(.medium))
-                }
+                metric(label: "Snow", value: String(format: "%.1f %@", totalSnow, unitSystem == "imperial" ? "in" : "cm"), tint: .primary)
             }
+        }
+    }
+
+    private func metric(label: String, value: String, tint: Color) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(label)
+                .font(.caption2.weight(.medium))
+                .foregroundStyle(.secondary)
+                .textCase(.uppercase)
+                .tracking(0.4)
+            Text(value)
+                .font(.callout.weight(.semibold))
+                .foregroundStyle(tint)
         }
     }
 

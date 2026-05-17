@@ -5,69 +5,54 @@ struct HourlyForecastView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Label("Short-Term Forecast", systemImage: "clock")
-                .font(.caption.weight(.medium))
-                .textCase(.uppercase)
-                .foregroundStyle(.secondary)
+            CarrotSectionHeader("Hourly Forecast", systemImage: "clock")
 
             ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 0) {
+                HStack(alignment: .center, spacing: 18) {
                     ForEach(Array(periods.enumerated()), id: \.element.id) { index, period in
                         if index > 0 && isDifferentDay(periods[index - 1].timeLocal, period.timeLocal) {
                             dayDivider(for: period.timeLocal)
                         }
-                        hourlyCard(period)
-                            .padding(.horizontal, 7)
+                        hourlyColumn(period)
                     }
                 }
-                .padding(.horizontal, 2)
+                .padding(.vertical, 4)
             }
         }
-        .padding(16)
-        .glassEffect(in: .rect(cornerRadius: 16))
+        .carrotCard()
     }
 
     private func dayDivider(for timeLocal: String) -> some View {
-        HStack(spacing: 10) {
-            Rectangle()
-                .fill(.secondary.opacity(0.3))
-                .frame(width: 1)
+        VStack(spacing: 4) {
+            Spacer(minLength: 0)
             Text(formatDayShort(timeLocal))
-                .font(.system(.caption2, weight: .bold))
-                .foregroundStyle(.secondary)
-                .fixedSize()
-            Rectangle()
-                .fill(.secondary.opacity(0.3))
-                .frame(width: 1)
+                .font(.system(size: 11, weight: .bold))
+                .foregroundStyle(.primary)
+            Spacer(minLength: 0)
         }
-        .padding(.vertical, 12)
-        .padding(.horizontal, 10)
+        .padding(.horizontal, 4)
     }
 
-    private func hourlyCard(_ period: HourlyPeriod) -> some View {
-        VStack(spacing: 8) {
+    private func hourlyColumn(_ period: HourlyPeriod) -> some View {
+        VStack(spacing: 6) {
             Text(formatHour(period.timeLocal))
                 .font(.caption.weight(.medium))
                 .foregroundStyle(.secondary)
 
             Image(systemName: weatherSymbol(for: period.weather.icon))
-                .font(.title2)
                 .symbolRenderingMode(.multicolor)
+                .font(.title3)
+                .frame(height: 22)
 
             Text("\(Int(period.temperature.rounded()))°")
-                .font(.title3.weight(.medium))
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(.primary)
 
-            if period.pop > 0 {
-                Text("\(period.pop)%")
-                    .font(.caption2.weight(.medium))
-                    .foregroundStyle(.cyan)
-            }
-
-            Text("\(period.wind.direction) \(Int(period.wind.speed))")
-                .font(.caption2)
-                .foregroundStyle(.secondary)
+            Text(period.pop > 0 ? "\(period.pop)%" : "—")
+                .font(.caption2.weight(.semibold))
+                .foregroundStyle(period.pop > 0 ? CarrotStyle.precipBlue : .clear)
+                .frame(height: 12)
         }
-        .frame(width: 72)
-        .padding(.vertical, 12)
+        .frame(width: 44)
     }
 }
