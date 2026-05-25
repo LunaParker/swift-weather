@@ -94,17 +94,20 @@ struct DailyForecastView: View {
                 .font(.title3)
                 .frame(width: 28)
 
-            // Precip %
-            Group {
+            // Condition text + precip%
+            VStack(alignment: .leading, spacing: 1) {
+                Text(day.day.weather.text)
+                    .font(.caption)
+                    .foregroundStyle(.primary)
+                    .lineLimit(1)
+                    .truncationMode(.tail)
                 if day.day.pop > 0 {
-                    Text("\(day.day.pop)%")
-                        .font(.caption.weight(.semibold))
+                    Text("\(day.day.pop)% chance")
+                        .font(.caption2.weight(.medium))
                         .foregroundStyle(CarrotStyle.precipBlue)
-                } else {
-                    Text("")
                 }
             }
-            .frame(width: 36, alignment: .leading)
+            .frame(maxWidth: .infinity, alignment: .leading)
 
             Spacer(minLength: 4)
 
