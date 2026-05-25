@@ -90,8 +90,7 @@ struct DailyForecastView: View {
             .frame(width: 78, alignment: .leading)
 
             // Weather icon
-            Image(systemName: weatherSymbol(for: day.day.weather.icon))
-                .symbolRenderingMode(.multicolor)
+            WeatherSymbol(icon: day.day.weather.icon)
                 .font(.title3)
                 .frame(width: 28)
 

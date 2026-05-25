@@ -39,8 +39,7 @@ struct HourlyForecastView: View {
                 .font(.caption.weight(.medium))
                 .foregroundStyle(.secondary)
 
-            Image(systemName: weatherSymbol(for: period.weather.icon))
-                .symbolRenderingMode(.multicolor)
+            WeatherSymbol(icon: period.weather.icon)
                 .font(.title3)
                 .frame(height: 22)
 

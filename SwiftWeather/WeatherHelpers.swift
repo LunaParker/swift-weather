@@ -27,20 +27,76 @@ func weatherSymbol(for iconCode: Int) -> String {
     }
 }
 
-// MARK: - Weather Symbol Color
+// MARK: - Weather Symbol View
 
-func weatherSymbolColors(for iconCode: Int) -> [Color] {
+/// Renders a weather SF Symbol with contrast that adapts to both light and
+/// dark card surfaces. `.multicolor` paints clouds/snow/fog with white
+/// layers — fine on dark cards, invisible on white. We use palette mode
+/// with theme-aware tints per-icon so the cloud body always reads.
+struct WeatherSymbol: View {
+    let icon: Int
+    @Environment(\.colorScheme) private var scheme
+
+    var body: some View {
+        let p = weatherIconPalette(for: icon, scheme: scheme)
+        Image(systemName: weatherSymbol(for: icon))
+            .symbolRenderingMode(.palette)
+            .foregroundStyle(p.primary, p.secondary, p.tertiary)
+    }
+}
+
+/// Per-icon palette tuned for visibility on white cards (light mode) and
+/// dark cards (dark mode). Layer ordering follows SF Symbols' palette
+/// preview: for multi-layer symbols the foreground/primary is the foremost
+/// element (sun, drops, bolt, stars) and the secondary is the cloud body.
+func weatherIconPalette(for iconCode: Int, scheme: ColorScheme) -> (primary: Color, secondary: Color, tertiary: Color) {
+    let dark = scheme == .dark
+
+    // Theme-aware palette anchors
+    let cloud: Color = dark
+        ? Color(red: 0.82, green: 0.86, blue: 0.92)   // light slate on dark
+        : Color(red: 0.52, green: 0.59, blue: 0.70)   // medium slate on white
+    let cloudShade: Color = dark
+        ? Color(red: 0.70, green: 0.74, blue: 0.82)
+        : Color(red: 0.42, green: 0.48, blue: 0.58)
+    let sun = Color(red: 1.00, green: 0.72, blue: 0.12)
+    let sunWarm = Color(red: 1.00, green: 0.52, blue: 0.16)
+    let rain: Color = dark
+        ? Color(red: 0.55, green: 0.78, blue: 1.00)
+        : Color(red: 0.20, green: 0.52, blue: 0.95)
+    let snow: Color = dark
+        ? Color(red: 0.75, green: 0.90, blue: 1.00)
+        : Color(red: 0.40, green: 0.68, blue: 0.92)
+    let bolt = Color(red: 1.00, green: 0.78, blue: 0.18)
+    let moon: Color = dark
+        ? Color(red: 0.88, green: 0.88, blue: 0.96)
+        : Color(red: 0.42, green: 0.42, blue: 0.62)
+    let star = sun
+    let fog: Color = dark
+        ? Color(red: 0.85, green: 0.88, blue: 0.92)
+        : Color(red: 0.62, green: 0.68, blue: 0.76)
+
     switch iconCode {
-    case 1, 2:       return [.yellow, .orange]
-    case 3, 4:       return [.yellow, .white]
-    case 5...8:      return [.gray, .white]
-    case 9...13:     return [.blue, .gray]
-    case 14...20:    return [.cyan, .white]
-    case 21...23:    return [.yellow, .gray]
-    case 24:         return [.gray, .white]
-    case 27, 30:     return [.yellow, .indigo]
-    case 28, 29, 31...33: return [.indigo, .gray]
-    default:         return [.gray, .white]
+    case 1, 2:        return (sun, sunWarm, sun)                  // sun.max.fill
+    case 3, 4:        return (sun, cloud, cloud)                  // cloud.sun.fill
+    case 5, 6:        return (cloud, cloudShade, cloud)           // cloud.fill
+    case 7, 8:        return (cloudShade, cloudShade, cloudShade) // smoke.fill
+    case 9, 10:       return (rain, cloud, cloud)                 // cloud.drizzle.fill
+    case 11:          return (rain, cloud, cloud)                 // cloud.heavyrain.fill
+    case 12, 13:      return (rain, cloud, cloud)                 // cloud.rain.fill
+    case 14, 15:      return (snow, cloud, cloud)                 // cloud.snow.fill
+    case 16, 17:      return (snow, cloud, cloud)                 // cloud.sleet.fill
+    case 18, 19, 20:  return (snow, cloud, cloud)                 // cloud.snow.fill
+    case 21, 22, 23:  return (bolt, rain, cloud)                  // cloud.bolt.rain.fill
+    case 24:          return (fog, cloud, cloud)                  // cloud.fog.fill
+    case 25:          return (snow, snow, snow)                   // snowflake
+    case 26:          return (cloudShade, cloudShade, cloudShade) // wind
+    case 27:          return (moon, moon, moon)                   // moon.fill
+    case 28, 29:      return (rain, moon, cloud)                  // cloud.moon.rain.fill
+    case 30:          return (star, moon, moon)                   // moon.stars.fill
+    case 31:          return (moon, cloud, cloud)                 // cloud.moon.fill
+    case 32, 33:      return (snow, cloud, cloud)                 // cloud.snow.fill (night)
+    default:          return (cloud, cloudShade, cloud)
     }
 }
 

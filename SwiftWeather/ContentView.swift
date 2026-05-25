@@ -526,8 +526,7 @@ struct ContentView: View {
                 ProgressView()
             } else if let current = recent.current {
                 HStack(spacing: 12) {
-                    Image(systemName: weatherSymbol(for: current.weather.icon))
-                        .symbolRenderingMode(.multicolor)
+                    WeatherSymbol(icon: current.weather.icon)
                         .font(.system(size: 28))
 
                     VStack(alignment: .trailing, spacing: 2) {
