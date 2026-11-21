@@ -1,19 +1,19 @@
 # SwiftWeather
 
-A simple SwiftUI weather app proof-of-concept which displays Canadian weather data from Pelmorex's public web APIs.
+A simple SwiftUI weather app proof of concept that displays Canadian weather data from the Pelmorex web APIs behind theweathernetwork.com.
 
 ## Features
 
-- **Current conditions** - temperature, feels-like, humidity, dew point, pressure, visibility, wind, UV index, air quality, pollen, and weather alerts
-- **Forecasts** - 24-hour hourly forecast, 15-day daily forecast, precipitation outlook, and sunrise/sunset times
-- **Context cards** - yesterday's high/low, monthly climate averages, and health indices (migraine, cold & flu, joint pain, etc.)
-- **Current location** - IP-based geolocation surfaces your nearest city on the start screen without any permission prompt
-- **Recent locations** - quick-access cards for your most recently viewed cities with live temperature and conditions
-- **Search** - city lookup with optional Canadian-only filter
-- **Units** - switchable metric / imperial
-- **Themes** - clear or frosted glass background styles that adapt to the current weather
-- **Onboarding** - first-launch location picker
-- **Mock data mode** - offline development and UI preview support
+- **Current conditions**: temperature, feels-like, humidity, dew point, pressure, visibility, wind, UV index, air quality, pollen, and weather alerts
+- **Forecasts**: 24-hour hourly forecast, 15-day daily forecast, precipitation outlook, and sunrise/sunset times
+- **Context cards**: yesterday's high/low, monthly climate averages, and health indices (migraine, cold & flu, joint pain, etc.)
+- **Current location**: IP-based geolocation surfaces your nearest city on the start screen without any permission prompt
+- **Recent locations**: quick-access cards for your most recently viewed cities with live temperature and conditions
+- **Search**: city lookup with optional Canadian-only filter
+- **Units**: switchable metric / imperial
+- **Themes**: clear or frosted glass background styles that adapt to the current weather
+- **Onboarding**: first-launch location picker
+- **Mock data mode**: offline development and UI preview support
 
 ## Build
 
@@ -28,7 +28,7 @@ A simple SwiftUI weather app proof-of-concept which displays Canadian weather da
 3. Select a run destination (iPhone simulator, Mac, iPad, or Vision Pro simulator)
 4. Build and run (no external dependencies/libraries)
 
-## File Structure
+## File structure
 
 ```
 SwiftWeather/
@@ -56,7 +56,7 @@ SwiftWeather/
     └── SwiftWeather.entitlements    App sandbox + network client entitlements
 ```
 
-## Data Structures
+## Data structures
 
 All domain types live in `Models.swift`. The client decodes Pelmorex's raw JSON into intermediate wrappers in the `APIResponse` enum and flattens them into the following app-facing types:
 
@@ -68,7 +68,7 @@ All domain types live in `Models.swift`. The client decodes Pelmorex's raw JSON 
 | `RecentLocationWeather` | A light snapshot used for the start-screen cards: a `Location` plus its current conditions and today's high/low. |
 | `AllWeatherData` | The top-level container returned by `WeatherClient.getAll(…)` - bundles every subsystem below. |
 
-### Observations & Forecasts
+### Observations & forecasts
 
 | Type | Description |
 | --- | --- |
@@ -77,7 +77,7 @@ All domain types live in `Models.swift`. The client decodes Pelmorex's raw JSON 
 | `DailyForecast` | A single day with `day` and `night` `DayNightForecast` splits, plus totals for rain/snow and hours of sun. |
 | `DayNightForecast` | The per-half-day conditions embedded in `DailyForecast`. |
 
-### Context & Climate
+### Context & climate
 
 | Type | Description |
 | --- | --- |
@@ -91,7 +91,7 @@ All domain types live in `Models.swift`. The client decodes Pelmorex's raw JSON 
 | `DailyAverage` | Per-day climate normals for the current month. |
 | `WeatherAlert` | Severe-weather alerts (headline, severity, timing, description). |
 
-### Shared Components
+### Shared components
 
 | Type | Description |
 | --- | --- |
@@ -99,7 +99,7 @@ All domain types live in `Models.swift`. The client decodes Pelmorex's raw JSON 
 | `Precipitation` | Accumulation value and range label. |
 | `WeatherCode` | Numeric icon id + text description used to drive SF Symbol mapping. |
 
-### API Endpoints
+## API endpoints
 
 `WeatherClient.swift` targets three Pelmorex hosts. Responses are cached for 5 minutes and a short-circuit is applied if the server returns HTTP 403 (rate limited):
 
@@ -109,12 +109,12 @@ All domain types live in `Models.swift`. The client decodes Pelmorex's raw JSON 
 | `pelmsearch.pelmorex.com` | City search and place-code lookup |
 | `services.pelmorex.com` | Health indices, air quality targeting, and IP geolocation (`/geoip/en-CA/locate`) |
 
-## Future Plans
+## Future plans
 
 Ideas not yet implemented:
 
-- **Precipitation radar** - an interactive map tile layer showing live rain/snow radar, generated from the Pelmorex tile endpoints that power theweathernetwork.com.
-- **iOS target optimization** - the UI was designed for macOS, and as such, the iOS and iPadOS paths need layout tweaking.
+- **Precipitation radar**: an interactive map tile layer showing live rain/snow radar, generated from the Pelmorex tile endpoints that power theweathernetwork.com.
+- **iOS target optimization**: the UI was designed for macOS, and as such, the iOS and iPadOS paths need layout tweaking.
 
 ## Disclaimer
 
